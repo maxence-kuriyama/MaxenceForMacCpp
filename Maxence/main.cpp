@@ -8,14 +8,19 @@
 #include <GLUT/GLUT.h>
 #include <random>
 #include <time.h>
-#include <unistd.h>     // for sleep func
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <unistd.h>     // for sleep and getcwd
+#include <opencv2/opencv.hpp>
+//#include <opencv2/core/core.hpp>
+//#include <opencv2/highgui/highgui.hpp>
+//#include <opencv2/imgproc/imgproc.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 //#include <Eigen/Core>
+#include "jfont.h"
 using namespace std;
+namespace fs = boost::filesystem;
 //using namespace Eigen;
-//using namespace cv;
+using namespace cv;
 
 void idle();
 void setup();
@@ -27,7 +32,7 @@ void ps_motion(int cx, int cy);
 void keyboard(unsigned char key, int cx , int cy);
 void sp_key(int key, int x, int y);
 void display();
-void init();
+void init(fs::path cur_path);
 void drawSphere(double x, double y, double z, double r, int div = 5);
 void drawCircle(double x0, double y0, double r, int div = 20);
 void drawBox(double ld_x, double ld_y, double ru_x, double ru_y, bool filled = false);
@@ -66,10 +71,11 @@ random_device rnd;
 mt19937 mt(rnd());
 uniform_real_distribution<> unif(0.0, 1.0);
 normal_distribution<> gauss(0.0, 1.0);
+
 int winw = 900; //1200;
 int winh = 600; //800;
-double text1_x = -1.0; double text1_y = -0.5;
-double text2_x = 0.42; double text2_y = -0.5;
+double text1_x = -1.0; double text1_y = -0.75;
+double text2_x = 0.42; double text2_y = -0.75;
 double text3_x = -0.4; double text3_y = -0.5;
 double text4_x = -0.7; double text4_y = 0.0;
 double text5_x = 0.2; double text5_y = 0.0;
@@ -113,13 +119,17 @@ int main(int argc, char * argv[]) {
     cout << "Type ctrl+C to halt." << endl;
     srand((unsigned)time(NULL));
 //    tama[0].sound = 1;
-    init();
+    
+    fs::path cur_path(fs::initial_path<fs::path>());
+    cur_path = fs::system_complete(fs::path(argv[0]));
+    cout << "Current Directory : " << cur_path.parent_path() << endl;
+    init(cur_path);
     
     /*--Main loop-------*/
     glutInit(&argc, argv);
     glutInitWindowSize(winw, winh);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-    glutCreateWindow("Maxence for Mac 0.0.1");
+    glutCreateWindow("Maxence for Mac 0.1.1");
     glutReshapeFunc(resize);
     glutDisplayFunc(display);
     glutMouseFunc(mouse);
@@ -257,7 +267,6 @@ void mouse(int button, int state, int cx, int cy){
         }
         else if(gameFlg == 2){
             if(onButton(px, py, text3_x + 0.05, text3_y - 0.0, text3_x + 0.75, text3_y + 0.2)){
-                cancelCnt = 0;
                 initializeGame();
                 keyWait = 20;
             }
@@ -451,7 +460,6 @@ void keyboard(unsigned char key, int cx, int cy){
                     break;
                 case 'f':
                 case (char)13:
-                    cancelCnt = 0;
                     initializeGame();
                     keyWait = 20;
                     break;
@@ -553,11 +561,11 @@ void display(void){
         glDisable(GL_BLEND);
         if (taijin == 0) {
             glColor3d(1.0, 1.0, 1.0);    //White
-            if(text1 == 0) render_string(text1_x, text1_y, "Lonely");
-            if(text2 == 0) render_string(text2_x, text2_y, "With human");
+            if(text1 == 0) render_jstring(text1_x, text1_y, (unsigned char *)"ぼっちで");
+            if(text2 == 0) render_jstring(text2_x, text2_y, (unsigned char *)"隣の人と");
             glColor3d(1.0, 0.0, 0.0);    //Red
-            if(text1 == 1) render_string(text1_x, text1_y, "Lonely");
-            if(text2 == 1) render_string(text2_x, text2_y, "With human");
+            if(text1 == 1) render_jstring(text1_x, text1_y, (unsigned char *)"ぼっちで");
+            if(text2 == 1) render_jstring(text2_x, text2_y, (unsigned char *)"隣の人と");
         }
     }
     else if (gameFlg == 1){
@@ -666,20 +674,26 @@ void display(void){
 }
 
 /*--Other func-------------------------------------------------------------------------*/
-void init(){
-    logo4 = cv::imread("graph/Maxence_after4.png", cv::IMREAD_UNCHANGED);
+void init(fs::path cur_path){
+    // パスの取得
+    string str_cur_path = cur_path.parent_path().string();
+//    cout << str_cur_path << endl;
+    // ロゴ画像の作成
+    logo4 = cv::imread(str_cur_path + "/graph/Maxence_after4.png", cv::IMREAD_UNCHANGED);
     cv::flip(logo4, logo4, 0);
-    cv::cvtColor(logo4, logo4, CV_BGRA2RGBA);
+    cv::cvtColor(logo4, logo4, COLOR_BGRA2RGBA);
+    resize(logo4, logo4, cv::Size(), 1.0, 0.75);
+    // 置石画像の作成
     for(int i = 0; i < 3; ++i){
         for(int j = 0; j < 3; ++j){
-            child[i][j].stone1 = cv::imread("graph/stone1.png", cv::IMREAD_UNCHANGED);
+            child[i][j].stone1 = cv::imread(str_cur_path + "/graph/stone1.png", cv::IMREAD_UNCHANGED);
             cv::flip(child[i][j].stone1, child[i][j].stone1, 0);
-            cv::cvtColor(child[i][j].stone1, child[i][j].stone1, CV_BGRA2RGBA);
+            cv::cvtColor(child[i][j].stone1, child[i][j].stone1, COLOR_BGRA2RGBA);
             resize(child[i][j].stone1, child[i][j].stone1,
                    cv::Size(), 45.0/child[i][j].stone1.cols, 45.0/child[i][j].stone1.rows);
-            child[i][j].stone2 = cv::imread("graph/stone2.png", cv::IMREAD_UNCHANGED);
+            child[i][j].stone2 = cv::imread(str_cur_path + "/graph/stone2.png", cv::IMREAD_UNCHANGED);
             cv::flip(child[i][j].stone2, child[i][j].stone2, 0);
-            cv::cvtColor(child[i][j].stone2, child[i][j].stone2, CV_BGRA2RGBA);
+            cv::cvtColor(child[i][j].stone2, child[i][j].stone2, COLOR_BGRA2RGBA);
             resize(child[i][j].stone2, child[i][j].stone2,
                    cv::Size(), 45.0/child[i][j].stone2.cols, 45.0/child[i][j].stone2.rows);
         }
@@ -737,6 +751,7 @@ void render_string(float x, float y, const char* string) {
     glRasterPos3f(x, y, z);
     char* p = (char*) string;
     while (*p != '\0') glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p++);
+//    while (*p != '\0') glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *p++);
 }
 bool onButton(double x, double y, double ld_x, double ld_y, double ru_x, double ru_y) {
     if(ld_x >= ru_x) cout << "ERROR(onButton): null range of x." << endl;
@@ -756,6 +771,7 @@ int initializeGame() {
             child[i][j].initialize();
         }
     }
+    cancelCnt = 0;
 //    InitializeHist(last, seclast);
     return 0;
 }
